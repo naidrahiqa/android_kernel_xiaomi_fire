@@ -47,11 +47,20 @@ on:
           - none
           - thin
           - full
+      toolchain:
+        description: 'Clang toolchain'
+        required: true
+        default: 'oronyx'
+        type: choice
+        options:
+          - oronyx
+          - greenforce
 
 env:
   POLLUX_VARIANT: ${{ inputs.variant || '0' }}
   DEFCONFIG: ${{ inputs.defconfig || 'fire_defconfig' }}
   LTO: ${{ inputs.lto || 'none' }}
+  TOOLCHAIN: ${{ inputs.toolchain || 'oronyx' }}
 
 jobs:
   # ── Prep: expose env vars as job outputs (env is not usable in uses.with) ─
@@ -62,6 +71,7 @@ jobs:
       variant: ${{ steps.p.outputs.variant }}
       defconfig: ${{ steps.p.outputs.defconfig }}
       lto: ${{ steps.p.outputs.lto }}
+      toolchain: ${{ steps.p.outputs.toolchain }}
     steps:
       - id: p
         run: |
@@ -69,6 +79,7 @@ jobs:
           echo "variant=${VARIANT_NUM}" >> $GITHUB_OUTPUT
           echo "defconfig=${DEFCONFIG}" >> $GITHUB_OUTPUT
           echo "lto=${LTO}" >> $GITHUB_OUTPUT
+          echo "toolchain=${TOOLCHAIN}" >> $GITHUB_OUTPUT
 
   # ── Version ────────────────────────────────────────────────────────
   version:
@@ -114,6 +125,7 @@ jobs:
       lto: ${{ needs.prep.outputs.lto }}
       kernel_version: ${{ needs.version.outputs.version }}
       kernel_tag: ${{ needs.version.outputs.tag }}
+      toolchain: ${{ needs.prep.outputs.toolchain }}
 
   # ── Check build result ──────────────────────────────────────────────
   check-build:

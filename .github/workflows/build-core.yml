@@ -23,6 +23,10 @@ on:
       kernel_tag:
         required: true
         type: string
+      toolchain:
+        required: false
+        type: string
+        default: 'oronyx'
     outputs:
       status:
         description: 'Build result (success/failed)'
@@ -31,7 +35,6 @@ on:
 env:
   ARCH: arm64
   OUT_DIR: out
-  CLANG_REPO: https://github.com/naidrahiqa/cyrene_clang
 
 jobs:
   build:
@@ -60,13 +63,29 @@ jobs:
             libc++-dev libc++abi-dev lld \
             clang llvm
 
-      # ── Setup cyrene_clang ────────────────────────────────────────
+      # ── Setup clang toolchain (oronyx | greenforce) ───────────────
       # Do NOT add to PATH — use system clang for CC (works with Kconfig shell calls)
-      # Store cyrene_clang directory for explicit LD/AR/NM/STRIP/OBJCOPY/OBJDUMP
-      - name: Setup cyrene_clang
+      # Store toolchain directory for explicit LD/AR/NM/STRIP/OBJCOPY/OBJDUMP
+      - name: Setup clang toolchain
+        env:
+          TOOLCHAIN: ${{ inputs.toolchain }}
         run: |
-          bash <(wget -qO- https://raw.githubusercontent.com/naidrahiqa/cyrene_clang/main/get_clang.sh)
-          echo "CLANG_DIR=$HOME/toolchains/cyrene/bin" >> $GITHUB_ENV
+          case "$TOOLCHAIN" in
+            oronyx)
+              echo "📥 Installing Oronyx Clang..."
+              bash <(wget -qO- https://raw.githubusercontent.com/naidrahiqa/Oronyx_Clang/main/get_clang.sh)
+              echo "CLANG_DIR=$HOME/toolchains/oronyx/bin" >> $GITHUB_ENV
+              ;;
+            greenforce)
+              echo "📥 Installing GreenForce Clang..."
+              bash <(wget -qO- https://raw.githubusercontent.com/greenforce-project/greenforce_clang/main/get_clang.sh)
+              echo "CLANG_DIR=$GITHUB_WORKSPACE/greenforce-clang/bin" >> $GITHUB_ENV
+              ;;
+            *)
+              echo "❌ Unknown toolchain: $TOOLCHAIN (valid: oronyx, greenforce)"
+              exit 1
+              ;;
+          esac
           /usr/bin/clang --version
 
       # ── Setup ReSukiSU symlink ────────────────────────────────────
@@ -82,7 +101,7 @@ jobs:
 
       # ── Build Kernel ──────────────────────────────────────────────
       # CC=clang → /usr/bin/clang (system clang, supports all targets)
-      # LD/AR/etc → from cyrene_clang toolchain
+      # LD/AR/etc → from selected clang toolchain
       # CROSS_COMPILE not set → Makefile.clang uses CLANG_TARGET_FLAGS_arm64
       - name: Build kernel
         id: build
